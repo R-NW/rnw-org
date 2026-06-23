@@ -1,0 +1,59 @@
+# .github/workflows/reusable-gcp-auth-docker.yml
+name: Reusable - GCP Auth + Docker Build + Push
+
+on:
+  workflow_call:
+    inputs:
+      gcp_project_id:
+        required: true
+        type: string
+      gcp_region:
+        required: true
+        type: string
+        default: "europe-west9"
+      gcp_image_tag:
+        required: true
+        type: string
+      dockerfile_path:
+        required: false
+        type: string
+        default: "Dockerfile"
+      build_args:
+        required: false
+        type: string
+        default: ""
+    secrets:
+      gcp_workload_identity_provider:
+        required: true
+      gcp_service_account_email:
+        required: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.gcp_workload_identity_provider }}
+          service_account: ${{ secrets.gcp_service_account_email }}
+
+      - name: Configure Docker for GCP
+        run: gcloud auth configure-docker ${{ inputs.gcp_region }}-docker.pkg.dev
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f ${{ inputs.dockerfile_path }} \
+            ${{ inputs.build_args }} \
+            -t ${{ inputs.gcp_image_tag }} .
+
+      - name: Push Docker image
+        run: docker push ${{ inputs.gcp_image_tag }}

@@ -1,0 +1,54 @@
+# .github/workflows/reusable-gcs-sync.yml
+name: Reusable - GCP Auth + GCS Sync
+
+on:
+  workflow_call:
+    inputs:
+      gcp_project_id:
+        required: true
+        type: string
+      gcs_bucket_name:
+        required: true
+        type: string
+      source_path:
+        required: false
+        type: string
+        default: "./"
+      exclude_pattern:
+        required: false
+        type: string
+        default: '\\.git/.*|\\.github/.*|gha-creds-.*\\.json|.*__pycache__.*|.*\\.pyc$'
+    secrets:
+      gcp_workload_identity_provider:
+        required: true
+      gcp_service_account_email:
+        required: true
+
+jobs:
+  sync-to-gcs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.gcp_workload_identity_provider }}
+          service_account: ${{ secrets.gcp_service_account_email }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ inputs.gcp_project_id }}
+
+      - name: Sync to GCS
+        run: |
+          gcloud storage rsync ${{ inputs.source_path }} gs://${{ inputs.gcs_bucket_name }}/ \
+            --recursive \
+            --delete-unmatched-destination-objects \
+            --exclude="${{ inputs.exclude_pattern }}"

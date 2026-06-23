@@ -1,0 +1,89 @@
+# .github/workflows/reusable-python-ci.yml
+name: Reusable - Python CI (lint + test)
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        required: false
+        type: string
+        default: "3.12"
+      python_version_matrix:
+        required: false
+        type: string
+        default: '["3.10", "3.11", "3.12"]'
+      uv_extras:
+        required: false
+        type: string
+        default: ""           # e.g. "rte_puller revenue_model"
+      test_paths:
+        required: false
+        type: string
+        default: "tests/"
+      coverage_threshold:
+        required: false
+        type: number
+        default: 80
+    secrets:
+      gcp_workload_identity_provider:
+        required: false
+      gcp_service_account_email:
+        required: false
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - run: uv sync --group lint
+      - run: uv run ruff format --check
+      - run: uv run ruff check
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJson(inputs.python_version_matrix) }}
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        if: ${{ secrets.gcp_workload_identity_provider != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.gcp_workload_identity_provider }}
+          service_account: ${{ secrets.gcp_service_account_email }}
+
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          EXTRAS="${{ inputs.uv_extras }}"
+          EXTRA_FLAGS=""
+          for e in $EXTRAS; do EXTRA_FLAGS="$EXTRA_FLAGS --extra $e"; done
+          uv sync --group dev $EXTRA_FLAGS
+
+      - name: Run tests
+        run: |
+          uv run pytest ${{ inputs.test_paths }} \
+            -v --cov-report=xml --cov-fail-under=${{ inputs.coverage_threshold }} \
+            --junitxml=junit.xml
+
+      - name: Coverage comment on PR
+        uses: MishaKav/pytest-coverage-comment@main
+        if: github.event_name == 'pull_request' && matrix.python-version == '${{ inputs.python_version }}'
+        with:
+          pytest-xml-coverage-path: ./coverage.xml
+          junitxml-path: ./junit.xml
