@@ -33,7 +33,7 @@ on:
         required: true
 
 jobs:
-  build-and-push:
+  docker-build-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
