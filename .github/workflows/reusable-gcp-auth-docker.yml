@@ -22,6 +22,10 @@ on:
         required: false
         type: string
         default: ""
+      inject_gcp_access_token:
+        required: false
+        type: boolean
+        default: false
     secrets:
       gcp_workload_identity_provider:
         required: true
@@ -50,9 +54,14 @@ jobs:
 
       - name: Build Docker image
         run: |
+          EXTRA_ARGS="${{ inputs.build_args }}"
+          if [ "${{ inputs.inject_gcp_access_token }}" = "true" ]; then
+            TOKEN="$(gcloud auth print-access-token)"
+            EXTRA_ARGS="$EXTRA_ARGS --build-arg GCP_ACCESS_TOKEN=$TOKEN"
+          fi
           docker build \
             -f ${{ inputs.dockerfile_path }} \
-            ${{ inputs.build_args }} \
+            $EXTRA_ARGS \
             -t ${{ inputs.gcp_image_tag }} .
 
       - name: Push Docker image
