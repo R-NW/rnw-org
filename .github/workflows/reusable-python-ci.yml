@@ -15,7 +15,7 @@ on:
       uv_extras:
         required: false
         type: string
-        default: ""           # e.g. "rte_puller revenue_model"
+        default: ""
       test_paths:
         required: false
         type: string
