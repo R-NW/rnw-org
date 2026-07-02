@@ -24,6 +24,10 @@ on:
         required: false
         type: number
         default: 80
+      cov_source:
+        required: false
+        type: string
+        default: "src/"
       use_gcp_auth:
         required: false
         type: boolean
@@ -82,7 +86,8 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest ${{ inputs.test_paths }} \
-            -v --cov-report=xml --cov-fail-under=${{ inputs.coverage_threshold }} \
+            -v --cov=${{ inputs.cov_source }} --cov-report=xml \
+            --cov-fail-under=${{ inputs.coverage_threshold }} \
             --junitxml=junit.xml
 
       - name: Coverage comment on PR
