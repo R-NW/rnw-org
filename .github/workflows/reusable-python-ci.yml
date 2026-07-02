@@ -92,7 +92,7 @@ jobs:
 
       - name: Coverage comment on PR
         uses: MishaKav/pytest-coverage-comment@main
-        if: github.event_name == 'pull_request' && matrix.python-version == '${{ inputs.python_version }}'
+        if: ${{ github.event_name == 'pull_request' && matrix['python-version'] == inputs.python_version }}
         with:
           pytest-xml-coverage-path: ./coverage.xml
           junitxml-path: ./junit.xml
